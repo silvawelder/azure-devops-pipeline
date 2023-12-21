@@ -1,0 +1,22 @@
+{{- if .Values.service }}
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-{{ .Values.application_name }}
+  
+  labels:
+    app: {{ .Values.application_name }}
+    service: svc-{{ .Values.application_name }}
+spec:
+  ports:
+  - name: svc-access
+    port: {{ .Values.port }}
+    protocol: {{ coalesce .Values.service.protocol "TCP" }}
+    targetPort: {{ .Values.port }}
+  selector:
+    app: {{ .Values.application_name }}
+  sessionAffinity: None
+  type: {{ coalesce .Values.service.type "ClusterIP" }}
+{{- end }}
+{{- end }}

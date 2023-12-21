@@ -1,0 +1,34 @@
+variables:
+
+- ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}:
+  - group: projectname_env_stg
+- ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+  - group: projectname_env_dev
+
+- name: Environment
+  ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}:
+    value: 'stg'
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    value: 'dev'
+
+- name: Namespace
+  ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}:
+    value: 'projectname-stg'
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    value: 'projectname-dev'
+
+- name: REGISTRY
+  ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}:
+    value: '<awsaccountid>.<registryurl>/ecr-stg'
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    value: '<awsaccountid>.<registryurl>/ecr-dev'
+
+
+- name: REPO_NAME
+  ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}:
+    value: 'ecr-stg'
+  ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+    value: 'ecr-dev'
+
+- name: IMAGE_TAG
+  value: $(Build.BuildId)   

@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - staging
+      - master
+
+
+resources:
+  repositories:
+    - repository: pipeline
+      type: git 
+      name: project/repositoryName # <project>/<repo> refers to repository where is the pipeline templates template-nodejs.yaml
+      ref: v1 #branch which is used
+
+extends:
+  template: template-nodejs.yaml@pipeline #file@repository, this repository is refereced in resources 
+  parameters:
+    #general info
+    APP_NAME: frontendapp
+    NODE_VERSION: 14.x
+    DOCKERFILE_NAME: Dockerfile
+    PORT: 80
+       
+    RESOURCES:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1000Mi"
+    INGRESS:
+      dns: frontendapp.$(Environment).enterprisedomain.com.br
+
+    CREATE_INGRESS: true
+    CREATE_HPA: false

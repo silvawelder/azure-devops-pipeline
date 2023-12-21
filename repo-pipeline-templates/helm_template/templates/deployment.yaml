@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.application_name }}
+  
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.application_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.application_name }}
+    spec:
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml .Values.nodeSelector | nindent 8}}
+      {{- end }}
+      containers:
+      - name: {{ .Values.application_name }}
+        image: {{ .Values.image }}
+        {{- if .Values.resources }}
+        resources:
+        # Requests
+        {{- if .Values.resources.requests }}
+        {{- if or .Values.resources.requests.memory .Values.resources.requests.cpu }}
+          requests:
+            {{- if .Values.resources.requests.memory }}
+            memory: {{ .Values.resources.requests.memory }}
+            {{- end }}
+            {{- if .Values.resources.requests.cpu }}
+            cpu : {{ .Values.resources.requests.cpu }}
+            {{- end }}
+        {{- else }}
+          requests: {}
+        {{- end }}
+        {{- end }}
+        # Limits
+        {{- if .Values.resources.limits }}
+        {{- if or .Values.resources.limits.memory .Values.resources.limits.cpu }}
+          limits:
+            {{- if .Values.resources.limits.memory }}
+            memory: {{ .Values.resources.limits.memory }}
+            {{- end }}
+            {{- if .Values.resources.limits.cpu }}
+            cpu : {{ .Values.resources.limits.cpu }}
+            {{- end }}
+        {{- else }}
+          limits: {}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.port }}
+        envFrom:
+        - configMapRef:
+            name: configmap-{{ .Values.application_name }}

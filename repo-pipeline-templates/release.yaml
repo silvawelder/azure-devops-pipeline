@@ -1,0 +1,57 @@
+parameters:
+- name: HELM_VALUES
+  type: object
+- name: RELEASENAME
+  type: string
+#service connection if branch dev 
+- name: connectionDevelop
+  type: string
+  default: 'aws-k8s-dev'
+#service connection if branch staging 
+- name: connectionStaging
+  type: string
+  default: 'aws_k8s_stg'
+
+- name: K8S_NAMESPACE
+  type: string
+
+jobs:
+  - job:        
+    steps:
+    - ${{ if eq(variables['Build.SourceBranchName'], 'develop') }}:
+      - checkout: git://PROJECT/REPOSITORYNAME@BRANCHNAME # change to path where helm template is, in this case repo-pipeline-templates
+      - script: echo '${{ convertToJson(parameters.HELM_VALUES) }}' > localValueFile.json
+        displayName: output localValueFile.json
+      - script: cat localValueFile.json
+        displayName: display localValueFile.json
+      - task: HelmDeploy@0
+        displayName: Helm Apply
+        inputs:
+          command: upgrade
+          chartType: FilePath
+          connectionType: Kubernetes Service Connection
+          kubernetesServiceEndpoint: ${{ parameters.connectionStaging }}
+          namespace: ${{ parameters.K8S_NAMESPACE }}
+          chartPath: ./helm_template/ #path to helm templates directory 
+          arguments: -i --create-namespace
+          valueFile: localValueFile.json
+          releaseName: ${{ parameters.RELEASENAME }}
+    - ${{ else }}:      
+      - ${{ if eq(variables['Build.SourceBranchName'], 'staging') }}: 
+        - checkout: git://PROJECT/REPOSITORYNAME@BRANCHNAME # change to path where helm template is, in this case repo-pipeline-templates
+        - script: echo '${{ convertToJson(parameters.HELM_VALUES) }}' > localValueFile.json
+          displayName: output localValueFile.json
+        - script: cat localValueFile.json
+          displayName: display localValueFile.json        
+        - task: HelmDeploy@0
+          displayName: Helm Apply
+          inputs:
+            command: upgrade
+            chartType: FilePath
+            connectionType: Kubernetes Service Connection
+            kubernetesServiceEndpoint: ${{ parameters.connectionStaging }}
+            namespace: ${{ parameters.K8S_NAMESPACE }}
+            chartPath: ./helm_template/
+            arguments: -i --create-namespace
+            valueFile: localValueFile.json
+            releaseName: ${{ parameters.RELEASENAME }}

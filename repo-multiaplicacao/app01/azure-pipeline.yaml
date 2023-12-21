@@ -1,0 +1,42 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - staging
+      - master
+  paths:
+    include:
+      - 'app01/*' #folder to include pipeline trigger
+    exclude:
+      - '**/' #exclude root to trigger pipeline
+
+resources:
+  repositories:
+    - repository: pipeline
+      type: git 
+      name: project/repositoryName # <project>/<repo> refers to repository where is the pipeline templates 
+      ref: v1 #branch which is used
+
+extends:
+  template: template-dotnet.yaml@pipeline #file@branch 
+  parameters:
+    #general info
+    APP_NAME: app01
+    DOCKERFILE_NAME: Dockerfile
+    #required
+    APP_DIRECTORY: app01
+    PORT: 80
+
+    RESOURCES:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1000Mi"
+    INGRESS:
+      dns: app01.$(Environment).enterprisedomain.com.br
+
+    CREATE_INGRESS: true
+    CREATE_HPA: false
+    CREATE_CONFIGMAP: true

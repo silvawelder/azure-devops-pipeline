@@ -1,0 +1,181 @@
+trigger:
+- none
+
+resources:
+  repositories:
+    - repository: pipeline_templates
+      type: git
+      name: project/repositoryName #project/repositoryName refers to project and repository which contains release.yaml   
+      ref: branchName # Name of branch with templates used by this pipeline
+
+parameters:
+# General Values
+  - name: APP_NAME
+    type: string
+
+  - name: NODE_VERSION
+    type: string  
+  
+  - name: DOCKERFILE_NAME
+    type: string
+      
+  - name: RESOURCES
+    type: object
+    default: []
+
+  - name: NODESELECTOR
+    type: object
+    default:
+      node_group: system-private 
+      
+  - name: PORT
+    type: number
+
+  - name: INGRESS
+    type: object
+    default: {}
+
+  # Conditionals for Objects Creations
+  - name: CREATE_NAMESPACE
+    type: boolean
+    default: true
+  - name: CREATE_INGRESS
+    type: boolean
+    default: true
+ 
+  - name: CREATE_HPA
+    type: boolean
+    default: true
+  - name: CREATE_SERVICE
+    type: boolean
+    default: true  
+  - name: CREATE_CONFIGMAP
+    type: boolean
+    default: true 
+
+variables:
+- template: vars.yaml@pipeline_templates
+
+stages:
+- stage: Build
+  displayName: Build
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - job:
+    steps:
+ 
+    - task: SonarQubePrepare@5
+      inputs:
+        SonarQube: 'sonarqube_svc'
+        scannerMode: 'CLI'
+        projectKey: '${{ parameters.APP_NAME }}'
+        configFile: sonar-project.properties
+      continueOnError: true
+
+    - task: UseNode@1
+      displayName: 'Install Node.js'
+      inputs:
+        version: '${{ parameters.NODE_VERSION }}'
+      
+    - script: |
+        npm install
+      displayName: 'npm install'
+      continueOnError: true
+    
+    - script: |
+        CI=true npm test
+      displayName: 'npm test'
+      continueOnError: true
+    
+    - task: SonarQubeAnalyze@4
+    
+    - task: Docker@2
+      displayName: 'Build Image'
+      inputs:
+        command: build
+        repository: '${{ parameters.APP_NAME }}'
+        Dockerfile: '**/${{ parameters.DOCKERFILE_NAME }}'
+        tags: '$(Build.Buildid)'
+
+    - task: ECRPushImage@1
+      displayName: 'Push Image: '
+      inputs:
+        awsCredentials: 'aws_container_registry'
+        regionName: 'us-east-1'
+        imageSource: 'imagename'
+        sourceImageName: '${{ parameters.APP_NAME }}'
+        sourceImageTag: '$(Build.Buildid)'
+        repositoryName: '${{ variables.REPO_NAME }}'
+        pushTag: '${{ parameters.APP_NAME }}.$(Build.Buildid)'
+        forceDockerNamingConventions: true
+
+- stage: Deploy
+  displayName: Deploy
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - template: release.yaml@pipeline_templates
+    parameters:
+      K8S_NAMESPACE: ${{ variables.Namespace }}        
+      RELEASENAME: ${{ parameters.APP_NAME }}
+      # Values to pass to the helm values.yaml
+      HELM_VALUES:
+        namespace: ${{ variables.K8S_NAMESPACE }}
+        ${{ if eq(parameters.CREATE_NAMESPACE, true) }}:
+          create_namespace: true
+        application_name: ${{ parameters.APP_NAME }}
+        port: ${{ parameters.PORT }}
+        nodeSelector:
+          ${{ parameters.NODESELECTOR }}                               
+        image: ${{ variables.REGISTRY }}:${{ parameters.APP_NAME }}.${{ variables.IMAGE_TAG }}
+
+        ## HPA
+        ${{ if parameters.CREATE_HPA }}:
+          hpa:
+            enabled: true
+            min: 1
+            max: 3
+
+        ## Ingress
+        ${{ if parameters.CREATE_INGRESS }}:
+          ingress:
+            enabled: true
+            dns: ${{ parameters.INGRESS.dns }}
+
+        ## Service
+        ${{ if parameters.CREATE_SERVICE }}:
+          service:
+            enabled: true
+        ## Configmap
+        ${{ if parameters.CREATE_CONFIGMAP }}:
+          configmap:
+            enabled: true
+            data:
+              ${{ if eq(parameters.APP_NAME, 'app-front01') }}:
+              #variables from library variable group set by branch in vars.yaml
+                APP_FRONT_01_DB_USER: $(APP_FRONT_01_API_URL)
+                APP_FRONT_01_DB_PASSWORD: $(APP_FRONT_01_API_URI)
+
+        ### Resources
+        resources:
+          # requests
+          ${{ if or(parameters.RESOURCES.requests.cpu,parameters.RESOURCES.requests.memory) }}:
+            requests:
+              ${{ if parameters.RESOURCES.requests.memory }}:
+                memory: ${{ parameters.RESOURCES.requests.memory }}
+              ${{ if parameters.RESOURCES.requests.cpu }}:
+                cpu: ${{ parameters.RESOURCES.requests.cpu }}
+          ${{ else }}:
+            requests: {}
+          
+          # limits
+          ${{ if or(parameters.RESOURCES.limits.cpu, parameters.RESOURCES.limits.memory ) }}:
+            limits:
+              ${{ if parameters.RESOURCES.limits.memory }}:
+                memory: ${{ parameters.RESOURCES.limits.memory }}
+              ${{ if parameters.RESOURCES.limits.cpu }}:
+                cpu: ${{ parameters.RESOURCES.limits.cpu }}
+          # if vstudio show errors in this line, dont worry, its correct
+          ${{ else }}:
+            limits: {} 

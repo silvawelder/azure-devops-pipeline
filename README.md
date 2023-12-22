@@ -5,6 +5,8 @@
 ## Tecnologias
 - Azure DevOps
 - SonarQube
+- Helm Charts
+  
 
 ## Estrutura e Arquivos
 ```

@@ -1,5 +1,11 @@
 # azure-devops-pipeline
 
+## Objetivo
+    Padrão de pipelines para ser implantado visando a criação de templates de varias tecnologias
+## Tecnologias
+- Azure DevOps
+- SonarQube
+
 ## Estrutura e Arquivos
 ```
 ├── repo

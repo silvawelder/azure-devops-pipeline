@@ -84,7 +84,21 @@ stages:
       inputs:
         command: 'build'
         projects: "${{ parameters.APP_DIRECTORY }}/${{ parameters.APP_DIRECTORY }}.csproj"
+        
+    - task: DotNetCoreCLI@2
+      displayName: "Unit Tests"
+      inputs:
+        command: 'test'
+        projects: '**/${{ parameters.TESTS_DIRECTORY }}/*.csproj'
+        arguments: '--verbosity d --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura,opencover'
+        publishTestResults: true
 
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish code coverage'
+      inputs:
+        codeCoverageTool: Cobertura
+        summaryFileLocation: $(Agent.TempDirectory)/*/coverage.cobertura.xml
+        
     - task: SonarQubeAnalyze@4 
   
     - task: SonarQubePublish@5
